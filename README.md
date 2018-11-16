@@ -26,7 +26,8 @@ The following technical rules apply
 {
   "timestamp": "yyyymmddhhmmssSS",
   "uuid": "uuid",
-  "name": "name"
+  "name": "name",
+  "state": "ping"
 }
 ```
 
@@ -38,7 +39,21 @@ The following technical rules apply
   - log the text: `your_name,generated_uuid,epoch_in_millis`
 - when you 'get-hit' ie. receive and handle a message, you have to do the following:
   - generate an epoch time
-  - log the text: `your_name,received_uuid,epocyh_in_millis,received_payload`  
+  - get the payload from the request
+  - log the text: `your_name,received_uuid,epocyh_in_millis,received_payload`
+  - change the field 'state' from 'ping' to 'pong'
+  - determine to whom to respond by means of the field 'name'
+  - respond with the following message:
+
+```json
+{
+  "timestamp": "yyyymmddhhmmssSS",
+  "uuid": "uuid",
+  "name": "name",
+  "state": "pong"
+}
+```  
+  
 - After the battle you must export a log file containing:
     - all the shots fired (requests) using the format above,
     - all the 'you-got-hit' (handled messages), using the format above 
