@@ -43,6 +43,10 @@ The following technical rules apply
     - all the shots fired (requests) using the format above,
     - all the 'you-got-hit' (handled messages), using the format above 
 
+## Determine winners
+The winner is the one who shot the most bullets and had the most hits. In the next blog we will
+determine who is the winner using data analytics.
+
 ## Teams
 The following teams are formed:
 
