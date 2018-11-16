@@ -1,0 +1,5 @@
+cron:
+- description: "shoot every 1 minute"
+  url: /shoot
+  schedule: every 1 minutes
+  target: default

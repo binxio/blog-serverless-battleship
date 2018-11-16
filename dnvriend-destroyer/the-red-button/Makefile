@@ -5,7 +5,10 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 deploy: ## deploys the application
-	gcloud functions deploy dnvriend-destroyer --runtime python37 --trigger-http
+	gcloud app deploy
+
+deploy-cron: ## deploys the cron job
+	gcloud app deploy cron.yaml
 
 browse: ## open browser
 	gcloud app browse
