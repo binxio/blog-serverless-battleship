@@ -35,10 +35,10 @@ The following technical rules apply
 - When you 'shoot' `requests.post('')` you have to do the following:
   - put your name in the payload,
   - generate a uuid v4 and put that in the payload
-  - generate the epoch time in millis
+  - generate a UTC epoch time in millis
   - log the text: `your_name,generated_uuid,epoch_in_millis`
 - when you 'get-hit' ie. receive and handle a message, you have to do the following:
-  - generate an epoch time
+  - generate a UTC epoch time in millis
   - get the payload from the request
   - log the text: `your_name,received_uuid,epocyh_in_millis,received_payload`
   - change the field 'state' from 'ping' to 'pong'
