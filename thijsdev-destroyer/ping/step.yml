@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "A Lambda state machine."
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Policies:
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - "Effect": "Allow"
+                "Action":
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:GetLogEvents"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                  - "kinesis:*"
+                "Resource":
+                  - "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+
+
+  PingFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.handler"
+      Role: !GetAtt [ LambdaExecutionRole, Arn ]
+      Code:
+        ZipFile: |
+          import http.client
+          import json
+          import uuid
+          import time
+          import boto3
+          import os
+
+          client = boto3.client("kinesis")
+
+          def millis():
+              return int(round(time.time() * 1000))
+
+          def handler(event, context):
+              results = []
+              pings = 0
+              HOSTNAME = os.environ['HOSTNAME']
+              PATH = os.environ['PATH']
+
+              while context.get_remaining_time_in_millis() > 200:
+                  pings += 1
+                  start = millis()
+                  conn = http.client.HTTPSConnection(HOSTNAME)
+                  headers = {'Content-type': 'application/json', "User-Agent": "Lambda-step-function-gun"}
+                  foo = {'timestamp': millis(), 'uuid': "thijs" + str(uuid.uuid4()) }
+                  json_data = json.dumps(foo)
+                  conn.request('POST', PATH, json_data, headers)
+                  response = conn.getresponse()
+                  stop = millis()
+                  response = response.read().decode()
+                  data = json.dumps({"elaps": stop - start, "response": response }).encode('utf-8')
+                  results.append({ "PartitionKey": str(context.log_stream_name), "Data": data })
+                  if len(results) > 10:
+                      response = client.put_records(
+                          Records=results,
+                          StreamName='ping-war'
+                      )
+                      response = []
+              return { "done": "true", "pings": pings }
+
+          if __name__ == "__main__":
+              print(handler({},{}))
+
+
+      Runtime: "python3.6"
+      Timeout: "60"
+      MemorySize: "3008"
+      Environment:
+        Variables:
+          HOSTNAME: "speeltuin-martijn-vd-grift.appspot.com"
+          PATH: "/hit"
+
+  StatesExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: "*"
+
+  PingMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "Parallel Example.",
+              "StartAt": "Pings",
+              "States": {
+                "Pings": {
+                  "Type": "Parallel",
+                  "End": true,
+                  "Branches": [
+                    {"StartAt": "Ping_1", "States": { "Ping_1": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_2", "States": { "Ping_2": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_3", "States": { "Ping_3": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_4", "States": { "Ping_4": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_5", "States": { "Ping_5": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_6", "States": { "Ping_6": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_7", "States": { "Ping_7": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_8", "States": { "Ping_8": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_9", "States": { "Ping_9": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_10", "States": { "Ping_10": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_11", "States": { "Ping_11": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_12", "States": { "Ping_12": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_13", "States": { "Ping_13": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_14", "States": { "Ping_14": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_15", "States": { "Ping_15": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_16", "States": { "Ping_16": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_17", "States": { "Ping_17": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_18", "States": { "Ping_18": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_19", "States": { "Ping_19": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_20", "States": { "Ping_20": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_21", "States": { "Ping_21": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_22", "States": { "Ping_22": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_23", "States": { "Ping_23": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_24", "States": { "Ping_24": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_25", "States": { "Ping_25": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_26", "States": { "Ping_26": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_27", "States": { "Ping_27": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_28", "States": { "Ping_28": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_29", "States": { "Ping_29": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_30", "States": { "Ping_30": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_31", "States": { "Ping_31": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_32", "States": { "Ping_32": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_33", "States": { "Ping_33": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_34", "States": { "Ping_34": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_35", "States": { "Ping_35": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_36", "States": { "Ping_36": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_37", "States": { "Ping_37": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_38", "States": { "Ping_38": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_39", "States": { "Ping_39": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_40", "States": { "Ping_40": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_41", "States": { "Ping_41": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_42", "States": { "Ping_42": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_43", "States": { "Ping_43": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_44", "States": { "Ping_44": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_45", "States": { "Ping_45": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_46", "States": { "Ping_46": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_47", "States": { "Ping_47": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_48", "States": { "Ping_48": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_49", "States": { "Ping_49": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_50", "States": { "Ping_50": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_51", "States": { "Ping_51": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_52", "States": { "Ping_52": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_53", "States": { "Ping_53": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_54", "States": { "Ping_54": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_55", "States": { "Ping_55": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_56", "States": { "Ping_56": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_57", "States": { "Ping_57": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_58", "States": { "Ping_58": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_59", "States": { "Ping_59": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_60", "States": { "Ping_60": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_61", "States": { "Ping_61": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_62", "States": { "Ping_62": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_63", "States": { "Ping_63": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_64", "States": { "Ping_64": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_65", "States": { "Ping_65": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_66", "States": { "Ping_66": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_67", "States": { "Ping_67": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_68", "States": { "Ping_68": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_69", "States": { "Ping_69": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_70", "States": { "Ping_70": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_71", "States": { "Ping_71": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_72", "States": { "Ping_72": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_73", "States": { "Ping_73": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_74", "States": { "Ping_74": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_75", "States": { "Ping_75": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_76", "States": { "Ping_76": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_77", "States": { "Ping_77": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_78", "States": { "Ping_78": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_79", "States": { "Ping_79": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_80", "States": { "Ping_80": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_81", "States": { "Ping_81": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_82", "States": { "Ping_82": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_83", "States": { "Ping_83": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_84", "States": { "Ping_84": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_85", "States": { "Ping_85": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_86", "States": { "Ping_86": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_87", "States": { "Ping_87": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_88", "States": { "Ping_88": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_89", "States": { "Ping_89": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_90", "States": { "Ping_90": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_91", "States": { "Ping_91": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_92", "States": { "Ping_92": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_93", "States": { "Ping_93": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_94", "States": { "Ping_94": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_95", "States": { "Ping_95": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_96", "States": { "Ping_96": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_97", "States": { "Ping_97": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_98", "States": { "Ping_98": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_99", "States": { "Ping_99": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } },
+                    {"StartAt": "Ping_100", "States": { "Ping_100": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } }
+                  ]
+                }
+              }
+            }
+          - {lambdaArn: !GetAtt [ PingFunction, Arn ]}
+      RoleArn: !GetAtt [ StatesExecutionRole, Arn ]

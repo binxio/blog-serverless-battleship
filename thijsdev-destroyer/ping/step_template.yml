@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "A Lambda state machine."
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Policies:
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - "Effect": "Allow"
+                "Action":
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:GetLogEvents"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                  - "kinesis:*"
+                "Resource":
+                  - "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+
+
+  PingFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.handler"
+      Role: !GetAtt [ LambdaExecutionRole, Arn ]
+      Code:
+        ZipFile: |
+          {{ ping_script | indent(10) }}
+
+      Runtime: "python3.6"
+      Timeout: "60"
+      MemorySize: "3008"
+      Environment:
+        Variables:
+          HOSTNAME: "speeltuin-martijn-vd-grift.appspot.com"
+          PATH: "/hit"
+
+  StatesExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: "*"
+
+  PingMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "Parallel Example.",
+              "StartAt": "Pings",
+              "States": {
+                "Pings": {
+                  "Type": "Parallel",
+                  "End": true,
+                  "Branches": [
+{% for state_machine in state_machines %}
+                    {"StartAt": "{{ state_machine.name }}", "States": { "{{ state_machine.name }}": { "Type": "Task", "Resource": "${lambdaArn}","End": true } } }{{ "," if not loop.last }}
+{% endfor %}
+                  ]
+                }
+              }
+            }
+          - {lambdaArn: !GetAtt [ PingFunction, Arn ]}
+      RoleArn: !GetAtt [ StatesExecutionRole, Arn ]
