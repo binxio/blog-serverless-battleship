@@ -1,0 +1,2 @@
+service: battleship
+runtime: python37
